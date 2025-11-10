@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <iostream>
+#include <math.h>
 
 // Include GLEW and GLFW
 #include "dependente\glew\glew.h"
@@ -14,6 +15,8 @@
 
 // Include our helper function for loading shaders
 #include "shader.hpp"
+
+void drawCircle(GLfloat x, GLfloat y, GLfloat z, GLfloat radius, GLint noOfSides);
 
 // Global variables
 GLFWwindow* window;
@@ -159,7 +162,7 @@ int main(void)
 
 		// Apply z-axis rotation to our transform matrix
 		//trans = glm::rotate(trans, 0.5f, glm::vec3(0.0, 0.0, 1.0));
-
+		drawCircle(0.0f, 0.0f, 0.0f, 0.5f, 50);
 		// Bind VAO
 		glBindVertexArray(vao);
 
@@ -185,4 +188,30 @@ int main(void)
 	glfwTerminate();
 
 	return 0;
+}
+
+
+void drawCircle(GLfloat x, GLfloat y, GLfloat z, GLfloat radius, GLint noOfSides) {
+	GLint noOfVertices = noOfSides + 2;
+	GLfloat doublePi = 2.0f * M_PI;
+	GLfloat circleVerticesX[noOfVertices];
+	GLfloat circleVerticesY[noOfVertices];
+	GLfloat circleVerticesZ[noOfVertices];
+	circleVerticesX[0] = x;
+	circleVerticesY[0] = y;
+	circleVerticesZ[0] = z;
+	for(int i = 1; i < noOfVertices; i++) {
+		circleVerticesX[i] = x + (radius * cos(i * doublePi / noOfSides));
+		circleVerticesY[i] = y + (radius * sin(i * doublePi / noOfSides));
+		circleVerticesZ[i] = z;
+	}
+	GLfloat allCircleVertices[noOfVertices * 3];
+	for (int i = 0; i < noOfVertices; i++) {
+		allCircleVertices[i * 3] = circleVerticesX[i];
+		allCircleVertices[(i * 3) + 1] = circleVerticesY[i];
+		allCircleVertices[(i * 3) + 2] = circleVerticesZ[i];
+	}
+
+	glVertexPointer(3, GL_FLOAT, 0, allCircleVertices);
+	glDrawArrays(GL_TRIANGLE_FAN, 0, noOfVertices);
 }
