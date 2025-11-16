@@ -38,6 +38,9 @@ const float weaponSwing = -60.0f;
 const float swingSpeed = 200.0f;
 bool isSwinging = false;
 bool isSwingingDown = false;
+const float enemyRange = 0.4f;
+const float enemyCoolDown = 1.0f;
+float enemyTimer = 0.0f;
 // Enemy structure in order to simplify the management
 struct Enemy{
 	vec3 position;
@@ -66,8 +69,8 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 		for (int i = 0; i < 2; i++) {
 			if (enemies[i].existing) {
 				float distance = length(enemies[i].position - marian.position);
-				if (hitDistance < pickDistance) {
-					enemies[i].health -= 0.5f;
+				if (distance < hitDistance) {
+					enemies[i].health -= 0.34f;
 					cout << "Enemy " << i << " hit! Health: " << enemies[i].health * 100.0f << endl;
 					if (enemies[i].health <= 0.0f) {
 						enemies[i].existing = false;
@@ -289,6 +292,19 @@ int main(void)
 		unsigned int transformLoc = glGetUniformLocation(programID, "transform");
 		unsigned int transformLoc2 = glGetUniformLocation(programID, "color");
 
+		if(marian.existing && enemyCoolDown < currentFrame - enemyTimer){
+			for (int j = 0; j < 2; j++) {
+				if (enemies[j].existing) {
+					float distance = length(marian.position - enemies[j].position);
+					if (distance < enemyRange) {
+						marian.health -= 0.2f;
+						enemyTimer = currentFrame;
+						cout << "Marian hit! Health: " << marian.health * 100.0f << endl;
+					}
+				}
+			}
+		}
+
 		if (marian.existing) {
 			mat4 model = mat4(1.0f);
 			mat4 translation_matrix = translate(mat4(1.0f), marian.position);
@@ -343,6 +359,9 @@ int main(void)
 				glUniformMatrix4fv(transformLoc, 1, GL_FALSE, value_ptr(model));
 				glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 			}
+
+			
+
 		}
 		// Initializing the enemies after the weapon is picked
 		if (weaponPicked && !enemiesSpawned) {
@@ -412,6 +431,28 @@ int main(void)
 					glUniformMatrix4fv(transformLoc, 1, GL_FALSE, value_ptr(model));
 					glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 				}
+
+				// Drawing weapons for the enemies
+				// Drawing the sticks of the spears
+				glUniform4fv(transformLoc2, 1, value_ptr(vec4(0.13f, 0.11f, 0.03f, 1.0f)));
+				model = mat4(1.0f);
+				model = translate(model, enemies[j].position);
+				model = translate(model, weaponOffset);
+				model = rotate(model, -20.0f, vec3(0.0f, 0.0f, 1.0f));
+				model = scale(model, vec3(0.1f, 3.0f, 1.0f));
+				glUniformMatrix4fv(transformLoc, 1, GL_FALSE, value_ptr(model));
+				glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
+				//Drawing the tip of the spears
+				glUniform4fv(transformLoc2, 1, value_ptr(vec4(0.82f, 0.82f, 0.82f, 1.0f)));
+				model = mat4(1.0f);
+				model = translate(model, enemies[j].position);
+				model = translate(model, weaponOffset);
+				model = rotate(model, radians(-10.0f), vec3(0.0f, 0.0f, 1.0f));
+				model = translate(model, vec3(0.02f, 0.125f, 0.0f));
+				model = scale(model, vec3(1.0f, 1.0f, 1.0f));
+				glUniformMatrix4fv(transformLoc, 1, GL_FALSE, value_ptr(model));
+				glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_INT, 0);
 			}
 		}
 		//Swinging the weapon
