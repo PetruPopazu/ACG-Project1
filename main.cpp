@@ -16,24 +16,39 @@
 // Include our helper function for loading shaders
 #include "shader.hpp"
 
+using namespace std;
+using namespace glm;
+
 //void drawCircle(GLfloat x, GLfloat y, GLfloat z, GLfloat radius, GLint noOfSides);
 
 // Global variables
 GLFWwindow* window;
 const int width = 1024, height = 1024;
 float scaleX = 1.5f, scaleY = 0.5f, scaleZ = 0;
-float posx = 0.0f, posy = 0.0f, posz = 0.0f;
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
+bool weaponPicked = false;
+bool enemiesSpawned = false;
+const vec3 weaponStartPos = vec3(-0.85f, 0.85f, 0);
+const vec3 weaponOffset = vec3(0.2f, 0.0f, 0);
+const float pickDistance = 0.25f;
+// Enemy structure in order to simplify the management
+struct Enemy{
+	vec3 position;
+	bool existing = false;
+	vec4 color;
+}enemies[2];
+
+Enemy marian;
 
 // Callback function for cursor position
-void cursor_position_callback(GLFWwindow* window, double xpos, double ypos)
+/*void cursor_position_callback(GLFWwindow* window, double xpos, double ypos)
 {
 	std::cout << "The mouse cursor is: " << xpos << " " << ypos << std::endl;
 
 	// TODO Ex 8
 	// Don't forget that OpenGL coordinates are between -1,-1 and 1,1
-}
+}*/
 
 // TODO Ex 3
 // Add callback for mouse button
@@ -46,19 +61,27 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 		switch (key)
 		{
 		case GLFW_KEY_W:
-			posy += move;
+			marian.position.y += move;
 			break;
 		case GLFW_KEY_S:
-			posy -= move;
+			marian.position.y -= move;
 			break;
 		case GLFW_KEY_A:
-			posx -= move;
+			marian.position.x -= move;
 			break;
 		case GLFW_KEY_D:
-			posx += move;
+			marian.position.x += move;
 			break;
 		case GLFW_KEY_E:
-
+			if (!weaponPicked) {
+				//glm::vec3 marianPos = glm::vec3(marian.position.x, marian.position.y, marian.position.z);
+				float distance = length(weaponStartPos - marian.position);
+				if(distance < pickDistance) {
+					weaponPicked = true;
+					cout << "Weapon picked!" << endl;
+				}
+			}
+			break;
 		default:
 			break;
 		}
@@ -197,16 +220,18 @@ int main(void)
 	glBindVertexArray(0);
 
 	// Create identity matrix for transforms
-	glm::mat4 trans(1.0f);
+	mat4 trans(1.0f);
 
 	// Maybe we can play with different positions
-	glm::vec3 positions[] = {
-		glm::vec3(0.43f,  -0.03f,  0),//right arm
-		glm::vec3(-0.43f,  -0.03f, 0),//left arm
-		glm::vec3(0.15f, -0.13f, 0),//right leg
-		glm::vec3(-0.15f, -0.13f, 0),//left leg
-		glm::vec3(-0.85f, 0.85f, 0)//weapon
+	vec3 positions[] = {
+		vec3(0.43f,  -0.03f,  0),//right arm
+		vec3(-0.43f,  -0.03f, 0),//left arm
+		vec3(0.15f, -0.13f, 0),//right leg
+		vec3(-0.15f, -0.13f, 0)//left leg
+		//weapon
 	};
+
+	
 
 	// Set a callback for handling mouse cursor position
 	// Decomment the following line for a cursor position change callback example
@@ -215,6 +240,10 @@ int main(void)
 	// TODO Ex4
 	// Set callback for window resizing
 	glfwSetFramebufferSizeCallback(window, window_callback);
+
+	marian.position = vec3(0.0f, 0.0f, 0.0f);
+	marian.existing = true;
+	marian.color = vec4(0.0f, 1.0f, 0.0f, 1.0f);
 
 	// Check if the window was closed
 	while (!glfwWindowShouldClose(window))
@@ -233,85 +262,152 @@ int main(void)
 		glUseProgram(programID);
 		unsigned int transformLoc = glGetUniformLocation(programID, "transform");
 		unsigned int transformLoc2 = glGetUniformLocation(programID, "color");
-		
-		glm::mat4 model_matrix = glm::mat4(1.0f);
-		glm::mat4 translation_matrix = glm::translate(glm::mat4(1.0f),glm::vec3(posx,posy,posz));
-		// Bind the circle's VAO
-		glBindVertexArray(circle_vao);
-		
-		glfwSetKeyCallback(window, key_callback);
+		if (marian.existing) {
+			mat4 model = mat4(1.0f);
+			mat4 translation_matrix = translate(mat4(1.0f), marian.position);
 
-		//draw the head
-		
-		model_matrix = glm::scale(model_matrix, glm::vec3(0.25f, 0.25f, 1.0f));
-		model_matrix = glm::translate(model_matrix, glm::vec3(0.0f, 0.76f, 0.0f));
-		model_matrix = translation_matrix * model_matrix;
-		glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(model_matrix));
-		glm::vec4 head_color = glm::vec4(1.0f, 0.8f, 0.6f, 1.0f);
-		glUniform4fv(transformLoc2, 1, glm::value_ptr(head_color));
-		glDrawArrays(GL_TRIANGLE_FAN, 0, noOfVertices);
+			glBindVertexArray(circle_vao);
+			//drawing the head
+			model = scale(model, vec3(0.25f, 0.25f, 1.0f));
+			model = translate(model, vec3(0.0f, 0.76f, 0.0f));
+			model = translation_matrix * model;
+			glUniformMatrix4fv(transformLoc, 1, GL_FALSE, value_ptr(model));
+			vec4 head_color = vec4(1.0f, 0.8f, 0.6f, 1.0f);
+			glUniform4fv(transformLoc2, 1, value_ptr(head_color));
+			glDrawArrays(GL_TRIANGLE_FAN, 0, noOfVertices);
 
-		//draw the body
-		model_matrix = glm::mat4(1.0f);
-		model_matrix = glm::scale(model_matrix, glm::vec3(0.4f, 0.4f, 1.0f));
-		model_matrix = translation_matrix * model_matrix;
-		glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(model_matrix));
+			//drawing the body
+			model = mat4(1.0f);
+			model = scale(model, vec3(0.4f, 0.4f, 1.0f));
+			model = translation_matrix * model;
+			glUniformMatrix4fv(transformLoc, 1, GL_FALSE, value_ptr(model));
+			vec4 body_color = vec4(0.0f, 1.0f, 0.0f, 1.0f);
+			glUniform4fv(transformLoc2, 1, value_ptr(body_color));
+			glDrawArrays(GL_TRIANGLE_FAN, 0, noOfVertices);
 
-		glm::vec4 body_color = glm::vec4(0.0f, 1.0f, 0.0f, 1.0f);
-		glUniform4fv(transformLoc2, 1, glm::value_ptr(body_color));
-		glDrawArrays(GL_TRIANGLE_FAN, 0, noOfVertices);
+			glBindVertexArray(vao);
+			//drawing the arms and legs
+			vec3 arm_scale = vec3(0.3f, 2.0f, 1.0f);
+			vec3 leg_scale = vec3(0.4f, 1.3f, 1.0f);
+			vec4 leg_color = vec4(0.56f, 0.63f, 0.84f, 1.0);
+			vec3 scaleParts;
+			GLfloat angle = 20.0f;
+			for (int i = 0; i < 4; i++) {
+				if (i >= 2) {
+					glUniform4fv(transformLoc2, 1, value_ptr(leg_color));
+					scaleParts = leg_scale;
+				}
+				else {
+					glUniform4fv(transformLoc2, 1, value_ptr(body_color));
+					scaleParts = arm_scale;
+				}
+				model = mat4(1.0f);
 
-		// Bind VAO
-		glBindVertexArray(vao);
+				if (i == 0) {
+					model = rotate(model, angle, vec3(0.0f, 0.0f, 1.0f));
+				}
+				if (i == 1) {
+					model = rotate(model, -angle, vec3(0.0f, 0.0f, 1.0f));
+				}
+				model = scale(model, scaleParts);
+				model = translate(model, positions[i]);
+				model = translation_matrix * model;
 
-		// Send variables to shaders via uniforms
-		
-		
-		glm::vec3 arm_scale = glm::vec3(0.3f, 2.0f, 1.0f);
-		glm::vec3 leg_scale = glm::vec3(0.4f, 1.3f, 1.0f);
-		glm::vec4 leg_color = glm::vec4(0.56f, 0.63f, 0.84f, 1.0);
-		glm::vec3 scale;
-		GLfloat angle = 20.0f;
-		//draw arms, legs and weapon
-		for(int i = 0; i < 5; i++){
-			if (i == 4) {
-				glUniform4fv(transformLoc2, 1, glm::value_ptr(glm::vec4(0.82f,0.82f,0.82f,1.0f)));
-				model_matrix = glm::mat4(1.0f);
-				model_matrix = glm::translate(model_matrix, positions[i]);
-				model_matrix = glm::rotate(model_matrix, angle, glm::vec3(0.0f, 0.0f, 1.0f));
-				model_matrix = glm::scale(model_matrix, arm_scale);
-				
-				glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(model_matrix));
+				glUniformMatrix4fv(transformLoc, 1, GL_FALSE, value_ptr(model));
 				glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-				continue;
 			}
-			if (i >= 2) {
-				glUniform4fv(transformLoc2, 1, glm::value_ptr(leg_color));
-				scale = leg_scale;
-			}
-			else {
-				glUniform4fv(transformLoc2, 1, glm::value_ptr(body_color));
-				scale = arm_scale;
-			}
-			model_matrix = glm::mat4(1.0f);
-			
-			if (i == 0) {
-				model_matrix = glm::rotate(model_matrix, angle,glm::vec3(0.0f,0.0f,1.0f));
-			}
-			if (i == 1) {
-				model_matrix = glm::rotate(model_matrix, -angle, glm::vec3(0.0f, 0.0f, 1.0f));
-			}
-			model_matrix = glm::scale(model_matrix, scale);
-			model_matrix = glm::translate(model_matrix, positions[i]);
-			model_matrix = translation_matrix * model_matrix;
-			
+		}
+		// Initializing the enemies after the weapon is picked
+		if (weaponPicked && !enemiesSpawned) {
+			enemies[0].position = vec3(-0.7f, -0.7f, 0.0f);
+			enemies[0].color = vec4(1.0f, 0.0f, 0.0f, 1.0f);
+			enemies[0].existing = true;
+			enemies[1].position = vec3(0.7f, 0.7f, 0.0f);
+			enemies[1].color = vec4(1.0f, 0.0f, 0.0f, 1.0f);
+			enemies[1].existing = true;
 
-
-			glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(model_matrix));
-			glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+			enemiesSpawned = true;
+			cout << "Enemies spawned!" << '\n';
 		}
 
-		glfwPollEvents();
+		for (int j = 0; j < 2; j++) {
+			if (enemies[j].existing) {
+				mat4 model = mat4(1.0f);
+				mat4 translation_matrix = translate(mat4(1.0f), enemies[j].position);
+
+				glBindVertexArray(circle_vao);
+				//drawing the head
+				model = scale(model, vec3(0.25f, 0.25f, 1.0f));
+				model = translate(model, vec3(0.0f, 0.76f, 0.0f));
+				model = translation_matrix * model;
+				glUniformMatrix4fv(transformLoc, 1, GL_FALSE, value_ptr(model));
+				vec4 head_color = vec4(1.0f, 0.8f, 0.6f, 1.0f);
+				glUniform4fv(transformLoc2, 1, value_ptr(head_color));
+				glDrawArrays(GL_TRIANGLE_FAN, 0, noOfVertices);
+
+				//drawing the body
+				model = mat4(1.0f);
+				model = scale(model, vec3(0.4f, 0.4f, 1.0f));
+				model = translation_matrix * model;
+				glUniformMatrix4fv(transformLoc, 1, GL_FALSE, value_ptr(model));
+				vec4 body_color = vec4(1.0f, 0.0f, 0.0f, 1.0f);
+				glUniform4fv(transformLoc2, 1, value_ptr(body_color));
+				glDrawArrays(GL_TRIANGLE_FAN, 0, noOfVertices);
+
+				glBindVertexArray(vao);
+				//drawing the arms and legs
+				vec3 arm_scale = vec3(0.3f, 2.0f, 1.0f);
+				vec3 leg_scale = vec3(0.4f, 1.3f, 1.0f);
+				vec4 leg_color = vec4(0.56f, 0.63f, 0.84f, 1.0);
+				vec3 scaleParts;
+				GLfloat angle = 20.0f;
+				for (int i = 0; i < 4; i++) {
+					if (i >= 2) {
+						glUniform4fv(transformLoc2, 1, value_ptr(leg_color));
+						scaleParts = leg_scale;
+					}
+					else {
+						glUniform4fv(transformLoc2, 1, value_ptr(body_color));
+						scaleParts = arm_scale;
+					}
+					model = mat4(1.0f);
+
+					if (i == 0) {
+						model = rotate(model, angle, vec3(0.0f, 0.0f, 1.0f));
+					}
+					if (i == 1) {
+						model = rotate(model, -angle, vec3(0.0f, 0.0f, 1.0f));
+					}
+					model = scale(model, scaleParts);
+					model = translate(model, positions[i]);
+					model = translation_matrix * model;
+
+					glUniformMatrix4fv(transformLoc, 1, GL_FALSE, value_ptr(model));
+					glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+				}
+			}
+		}
+
+		// Drawing the weapon
+		glUniform4fv(transformLoc2, 1, value_ptr(vec4(0.82f,0.82f,0.82f,1.0f)));
+		glBindVertexArray(vao);
+		mat4 model = mat4(1.0f);
+		if (!weaponPicked) {
+			model = translate(model, weaponStartPos);
+		}
+		else{
+			mat4 translation_matrix = translate(mat4(1.0f), marian.position);
+			model = translate(model, weaponOffset);
+			model = translation_matrix * model;
+		}
+
+		model = scale(model, vec3(0.3f, 2.0f, 1.0f));
+
+		glUniformMatrix4fv(transformLoc, 1, GL_FALSE, value_ptr(model));
+
+		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
+		glfwSetKeyCallback(window, key_callback);
 	}
 
 	// Cleanup
