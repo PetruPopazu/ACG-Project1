@@ -1,5 +1,5 @@
 <h2>The Rookie: Princess Rescue</h2>
 
-The story begins in the present day. You play as a young red-haired rookie, a freshly trained time traveler who has just received his first mission. Inside a hidden laboratory, an old mentor — the last of the Time Guardians — entrusts you with a dangerous task: travel back to the medieval age and rescue a kidnapped princess before her fate changes history forever.
-With a deep breath, you step into the glowing time portal, its energy swirling with unknown power. The old man’s final words echo in your mind — “Good luck, rookie… the past won’t be kind.”
-Now, thrown into a world of swords, tribes, and danger, you must fight for the princess’s safety. It’s your first time holding a blade, yet this is your moment to prove that even a rookie can rise to the challenge — The Princess Rescue.
+<p>The story begins in the present day. You play as a young red-haired rookie, a freshly trained time traveler who has just received his first mission. Inside a hidden laboratory, an old mentor — the last of the Time Guardians — entrusts you with a dangerous task: travel back to the medieval age and rescue a kidnapped princess before her fate changes history forever.</p>
+<p>With a deep breath, you step into the glowing time portal, its energy swirling with unknown power. The old man’s final words echo in your mind — “Good luck, rookie… the past won’t be kind.”
+Now, thrown into a world of swords, tribes, and danger, you must fight for the princess’s safety. It’s your first time holding a blade, yet this is your moment to prove that even a rookie can rise to the challenge — The Princess Rescue.</p>
