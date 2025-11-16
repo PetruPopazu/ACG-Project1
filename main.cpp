@@ -22,6 +22,9 @@
 GLFWwindow* window;
 const int width = 1024, height = 1024;
 float scaleX = 1.5f, scaleY = 0.5f, scaleZ = 0;
+float posx = 0.0f, posy = 0.0f, posz = 0.0f;
+float deltaTime = 0.0f;
+float lastFrame = 0.0f;
 
 // Callback function for cursor position
 void cursor_position_callback(GLFWwindow* window, double xpos, double ypos)
@@ -35,11 +38,38 @@ void cursor_position_callback(GLFWwindow* window, double xpos, double ypos)
 // TODO Ex 3
 // Add callback for mouse button
 
+void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
+{
+	float move = 3.0f * deltaTime;
+	if(action == GLFW_PRESS || action == GLFW_REPEAT)
+	{
+		switch (key)
+		{
+		case GLFW_KEY_W:
+			posy += move;
+			break;
+		case GLFW_KEY_S:
+			posy -= move;
+			break;
+		case GLFW_KEY_A:
+			posx -= move;
+			break;
+		case GLFW_KEY_D:
+			posx += move;
+			break;
+		case GLFW_KEY_E:
+
+		default:
+			break;
+		}
+	}
+}
+
 // TODO Ex 4
 // Complete callback for adjusting the viewport when resizing the window
 void window_callback(GLFWwindow* window, int new_width, int new_height)
 {
-	// What should we do here :thinking-emoji:?
+	glViewport(0, 0, new_width, new_height);
 }
 
 int main(void)
@@ -132,7 +162,6 @@ int main(void)
 	const GLint noOfVertices = noOfSides + 2; // Center + sides
 	GLfloat doublePi = 2.0f * 3.14159265358979323846;
 
-	// Create an array to hold the center (0,0,0) and all side points (3 floats per vertex)
 	GLfloat circle_vertices[noOfVertices * 3];
 
 	// Center vertex (0,0,0)
@@ -172,16 +201,11 @@ int main(void)
 
 	// Maybe we can play with different positions
 	glm::vec3 positions[] = {
-		glm::vec3(0.0f,  0.0f,  0),
-		glm::vec3(0.2f,  0.5f, 0),
-		glm::vec3(-0.15f, -0.22f, 0),
-		glm::vec3(-0.38f, -0.2f, 0),
-		glm::vec3(0.24f, -0.4f, 0),
-		glm::vec3(-0.17f,  0.3f, 0),
-		glm::vec3(0.23f, -0.2f, 0),
-		glm::vec3(0.15f,  0.2f, 0),
-		glm::vec3(0.15f,  0.7f, 0),
-		glm::vec3(-0.13f,  0.1f, 0)
+		glm::vec3(0.43f,  -0.03f,  0),//right arm
+		glm::vec3(-0.43f,  -0.03f, 0),//left arm
+		glm::vec3(0.15f, -0.13f, 0),//right leg
+		glm::vec3(-0.15f, -0.13f, 0),//left leg
+		glm::vec3(-0.85f, 0.85f, 0)//weapon
 	};
 
 	// Set a callback for handling mouse cursor position
@@ -195,6 +219,10 @@ int main(void)
 	// Check if the window was closed
 	while (!glfwWindowShouldClose(window))
 	{
+		float currentFrame = glfwGetTime();
+		deltaTime = currentFrame - lastFrame;
+		lastFrame = currentFrame;
+		
 		// Swap buffers
 		glfwSwapBuffers(window);
 		// Check for events
@@ -205,46 +233,85 @@ int main(void)
 		glUseProgram(programID);
 		unsigned int transformLoc = glGetUniformLocation(programID, "transform");
 		unsigned int transformLoc2 = glGetUniformLocation(programID, "color");
-		//draw the body
+		
 		glm::mat4 model_matrix = glm::mat4(1.0f);
-		model_matrix = glm::scale(model_matrix, glm::vec3(0.4f, 0.4f, 1.0f));
-		glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(model_matrix));
-
-		glm::vec4 body_color = glm::vec4(0.0f, 1.0f, 0.0f, 1.0f);
-		glUniform4fv(transformLoc2, 1, glm::value_ptr(body_color));
-
+		glm::mat4 translation_matrix = glm::translate(glm::mat4(1.0f),glm::vec3(posx,posy,posz));
 		// Bind the circle's VAO
 		glBindVertexArray(circle_vao);
-
-		// Draw the circle using GL_TRIANGLE_FAN
-		// The circle_vertices array is set up for GL_TRIANGLE_FAN: Center (0) -> V1 -> V2 -> ... -> Vn
-		glDrawArrays(GL_TRIANGLE_FAN, 0, noOfVertices);
 		
+		glfwSetKeyCallback(window, key_callback);
+
 		//draw the head
-		model_matrix = glm::mat4(1.0f);
+		
 		model_matrix = glm::scale(model_matrix, glm::vec3(0.25f, 0.25f, 1.0f));
 		model_matrix = glm::translate(model_matrix, glm::vec3(0.0f, 0.76f, 0.0f));
+		model_matrix = translation_matrix * model_matrix;
 		glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(model_matrix));
 		glm::vec4 head_color = glm::vec4(1.0f, 0.8f, 0.6f, 1.0f);
 		glUniform4fv(transformLoc2, 1, glm::value_ptr(head_color));
 		glDrawArrays(GL_TRIANGLE_FAN, 0, noOfVertices);
 
-		// Apply z-axis rotation to our transform matrix
-		//trans = glm::rotate(trans, 0.5f, glm::vec3(0.0, 0.0, 1.0));
-		//drawCircle(0.0f, 0.0f, 0.0f, 0.5f, 50);
+		//draw the body
+		model_matrix = glm::mat4(1.0f);
+		model_matrix = glm::scale(model_matrix, glm::vec3(0.4f, 0.4f, 1.0f));
+		model_matrix = translation_matrix * model_matrix;
+		glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(model_matrix));
+
+		glm::vec4 body_color = glm::vec4(0.0f, 1.0f, 0.0f, 1.0f);
+		glUniform4fv(transformLoc2, 1, glm::value_ptr(body_color));
+		glDrawArrays(GL_TRIANGLE_FAN, 0, noOfVertices);
+
 		// Bind VAO
 		glBindVertexArray(vao);
 
 		// Send variables to shaders via uniforms
 		
-		glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(trans));
 		
-		
-		glm::vec4 color = glm::vec4(0.5f, 0, 0.5f, 1.0);
-		glUniform4fv(transformLoc2, 1, glm::value_ptr(color));
+		glm::vec3 arm_scale = glm::vec3(0.3f, 2.0f, 1.0f);
+		glm::vec3 leg_scale = glm::vec3(0.4f, 1.3f, 1.0f);
+		glm::vec4 leg_color = glm::vec4(0.56f, 0.63f, 0.84f, 1.0);
+		glm::vec3 scale;
+		GLfloat angle = 20.0f;
+		//draw arms, legs and weapon
+		for(int i = 0; i < 5; i++){
+			if (i == 4) {
+				glUniform4fv(transformLoc2, 1, glm::value_ptr(glm::vec4(0.82f,0.82f,0.82f,1.0f)));
+				model_matrix = glm::mat4(1.0f);
+				model_matrix = glm::translate(model_matrix, positions[i]);
+				model_matrix = glm::rotate(model_matrix, angle, glm::vec3(0.0f, 0.0f, 1.0f));
+				model_matrix = glm::scale(model_matrix, arm_scale);
+				
+				glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(model_matrix));
+				glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+				continue;
+			}
+			if (i >= 2) {
+				glUniform4fv(transformLoc2, 1, glm::value_ptr(leg_color));
+				scale = leg_scale;
+			}
+			else {
+				glUniform4fv(transformLoc2, 1, glm::value_ptr(body_color));
+				scale = arm_scale;
+			}
+			model_matrix = glm::mat4(1.0f);
+			
+			if (i == 0) {
+				model_matrix = glm::rotate(model_matrix, angle,glm::vec3(0.0f,0.0f,1.0f));
+			}
+			if (i == 1) {
+				model_matrix = glm::rotate(model_matrix, -angle, glm::vec3(0.0f, 0.0f, 1.0f));
+			}
+			model_matrix = glm::scale(model_matrix, scale);
+			model_matrix = glm::translate(model_matrix, positions[i]);
+			model_matrix = translation_matrix * model_matrix;
+			
 
-		// Draw call
-		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
+			glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(model_matrix));
+			glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+		}
+
+		glfwPollEvents();
 	}
 
 	// Cleanup
@@ -258,29 +325,3 @@ int main(void)
 
 	return 0;
 }
-
-
-/*void drawCircle(GLfloat x, GLfloat y, GLfloat z, GLfloat radius, GLint noOfSides) {
-	GLint noOfVertices = noOfSides + 2;
-	GLfloat doublePi = 2.0f * M_PI;
-	GLfloat circleVerticesX[noOfVertices];
-	GLfloat circleVerticesY[noOfVertices];
-	GLfloat circleVerticesZ[noOfVertices];
-	circleVerticesX[0] = x;
-	circleVerticesY[0] = y;
-	circleVerticesZ[0] = z;
-	for(int i = 1; i < noOfVertices; i++) {
-		circleVerticesX[i] = x + (radius * cos(i * doublePi / noOfSides));
-		circleVerticesY[i] = y + (radius * sin(i * doublePi / noOfSides));
-		circleVerticesZ[i] = z;
-	}
-	GLfloat allCircleVertices[noOfVertices * 3];
-	for (int i = 0; i < noOfVertices; i++) {
-		allCircleVertices[i * 3] = circleVerticesX[i];
-		allCircleVertices[(i * 3) + 1] = circleVerticesY[i];
-		allCircleVertices[(i * 3) + 2] = circleVerticesZ[i];
-	}
-
-	glVertexPointer(3, GL_FLOAT, 0, allCircleVertices);
-	glDrawArrays(GL_TRIANGLE_FAN, 0, noOfVertices);
-}*/
