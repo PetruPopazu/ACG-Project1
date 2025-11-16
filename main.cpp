@@ -23,13 +23,17 @@ using namespace glm;
 
 // Global variables
 GLFWwindow* window;
-const int width = 1024, height = 1024;
+const int width = 1200, height = 1024;
 float scaleX = 1.5f, scaleY = 0.5f, scaleZ = 0;
+const float borderLeft = -1.0f;
+const float borderRight = 1.0f;
+const float borderTop = 1.0f;
+const float borderBottom = -1.0f;
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
 bool weaponPicked = false;
 bool enemiesSpawned = false;
-const vec3 weaponStartPos = vec3(-0.85f, 0.85f, 0);
+const vec3 weaponStartPos = vec3(-0.75f, 0.75f, 0);
 const vec3 weaponOffset = vec3(0.2f, 0.0f, 0);
 const float pickDistance = 0.25f;
 const float hitDistance = 0.5f;
@@ -40,7 +44,21 @@ bool isSwinging = false;
 bool isSwingingDown = false;
 const float enemyRange = 0.4f;
 const float enemyCoolDown = 1.0f;
+//radius of the body is 0.3f and we scale it with 0.4f, so the actual radius is 0.12f
+const float playerRadius = 0.12f;
 float enemyTimer = 0.0f;
+bool gameOver = false;
+bool gameWon = false;
+//in order for marian to move smoothly i used flags in the key callback function
+// as the previous implementation had flaws
+bool moveUp = false;
+bool moveDown = false;
+bool moveLeft = false;
+bool moveRight = false;
+
+bool isSpinning = false;
+float spinAngle = 0.0f;
+float spinSpeed = 100.0f;
 // Enemy structure in order to simplify the management
 struct Enemy{
 	vec3 position;
@@ -51,30 +69,22 @@ struct Enemy{
 
 Enemy marian;
 
-// Callback function for cursor position
-/*void cursor_position_callback(GLFWwindow* window, double xpos, double ypos)
-{
-	std::cout << "The mouse cursor is: " << xpos << " " << ypos << std::endl;
-
-	// TODO Ex 8
-	// Don't forget that OpenGL coordinates are between -1,-1 and 1,1
-}*/
-
-
-void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
-{
+//callback function for hitting the enemies with the sword
+void mouse_button_callback(GLFWwindow* window, int button, int action, int mods){
 	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS && weaponPicked) {
 		isSwinging = true;
 		isSwingingDown = true;
-		for (int i = 0; i < 2; i++) {
-			if (enemies[i].existing) {
-				float distance = length(enemies[i].position - marian.position);
-				if (distance < hitDistance) {
-					enemies[i].health -= 0.34f;
-					cout << "Enemy " << i << " hit! Health: " << enemies[i].health * 100.0f << endl;
-					if (enemies[i].health <= 0.0f) {
-						enemies[i].existing = false;
-						cout << "Enemy " << i << " defeated!" << endl;
+		if (marian.existing) {
+			for (int i = 0; i < 2; i++) {
+				if (enemies[i].existing) {
+					float distance = length(enemies[i].position - marian.position);
+					if (distance < hitDistance) {
+						enemies[i].health -= 0.34f;
+						cout << "Enemy " << i << " hit! Health: " << enemies[i].health * 100.0f << endl;
+						if (enemies[i].health <= 0.0f) {
+							enemies[i].existing = false;
+							cout << "Enemy " << i << " defeated!" << endl;
+						}
 					}
 				}
 			}
@@ -82,24 +92,25 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 	}
 }
 
+
+//movement and picking up the sword
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
-	float move = 3.0f * deltaTime;
-	if(action == GLFW_PRESS || action == GLFW_REPEAT)
+	if(action == GLFW_PRESS && marian.existing)
 	{
 		switch (key)
 		{
 		case GLFW_KEY_W:
-			marian.position.y += move;
+			moveUp = true;
 			break;
 		case GLFW_KEY_S:
-			marian.position.y -= move;
+			moveDown = true;
 			break;
 		case GLFW_KEY_A:
-			marian.position.x -= move;
+			moveLeft = true;
 			break;
 		case GLFW_KEY_D:
-			marian.position.x += move;
+			moveRight = true;
 			break;
 		case GLFW_KEY_E:
 			if (!weaponPicked) {
@@ -111,21 +122,45 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 				}
 			}
 			break;
+		case GLFW_KEY_J:
+			if (marian.existing && gameWon) {
+				isSpinning = true;
+				spinAngle = 0.0f;
+			}
+			break;
+		default:
+			break;
+		}
+	}
+
+	if (action == GLFW_RELEASE && marian.existing)
+	{
+		switch (key)
+		{
+		case GLFW_KEY_W:
+			moveUp = false;
+			break;
+		case GLFW_KEY_S:
+			moveDown = false;
+			break;
+		case GLFW_KEY_A:
+			moveLeft = false;
+			break;
+		case GLFW_KEY_D:
+			moveRight = false;
+			break;
 		default:
 			break;
 		}
 	}
 }
 
-// TODO Ex 4
-// Complete callback for adjusting the viewport when resizing the window
 void window_callback(GLFWwindow* window, int new_width, int new_height)
 {
 	glViewport(0, 0, new_width, new_height);
 }
 
-int main(void)
-{
+int main(void){
 	// Initialise GLFW
 	if (!glfwInit())
 	{
@@ -158,7 +193,7 @@ int main(void)
 	glViewport(0, 0, width, height);
 
 	// Clear framebuffer with dark blue color
-	glClearColor(0.18f, 0.7f, 0.95f, 0.0f);
+	glClearColor(0.20f, 0.19f, 0.96f, 0.0f);
 	glClear(GL_COLOR_BUFFER_BIT);
 
 	// Use our helper function to load the shaders from the specified files
@@ -193,8 +228,6 @@ int main(void)
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
-	// Describe the data in the buffer
-	// This will be accesible in the shaders
 	glVertexAttribPointer(
 		0,                  // attribute 0, must match the layout in the shader.
 		3,                  // size of each attribute (3 floats in this case)
@@ -205,23 +238,22 @@ int main(void)
 	);
 	glEnableVertexAttribArray(0);
 
-	const GLfloat circle_x = 0.0f; // Center X
-	const GLfloat circle_y = 0.0f; // Center Y
-	const GLfloat circle_z = 0.0f; // Center Z
-	const GLfloat circle_radius = 0.3f; // Radius
+	const GLfloat circle_x = 0.0f;
+	const GLfloat circle_y = 0.0f;
+	const GLfloat circle_z = 0.0f;
+	const GLfloat circle_radius = 0.3f;
 	const GLint noOfSides = 50;
 
-	const GLint noOfVertices = noOfSides + 2; // Center + sides
+	const GLint noOfVertices = noOfSides + 2;
 	GLfloat doublePi = 2.0f * 3.14159265358979323846;
 
 	GLfloat circle_vertices[noOfVertices * 3];
 
-	// Center vertex (0,0,0)
 	circle_vertices[0] = circle_x;
 	circle_vertices[1] = circle_y;
 	circle_vertices[2] = circle_z;
 
-	// Vertices for the sides
+
 	for (int i = 1; i < noOfVertices; i++) {
 		GLfloat angle = (GLfloat)(i - 1) * doublePi / noOfSides;
 		circle_vertices[i * 3] = circle_x + (circle_radius * cos(angle));
@@ -241,33 +273,19 @@ int main(void)
 	glBindBuffer(GL_ARRAY_BUFFER, circle_vbo);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(circle_vertices), circle_vertices, GL_STATIC_DRAW);
 
-	// Describe the data in the buffer for the circle
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
 	glEnableVertexAttribArray(0);
 
 	// Unbind circle VAO
 	glBindVertexArray(0);
 
-	// Create identity matrix for transforms
-	mat4 trans(1.0f);
-
-	// Maybe we can play with different positions
 	vec3 positions[] = {
 		vec3(0.43f,  -0.03f,  0),//right arm
 		vec3(-0.43f,  -0.03f, 0),//left arm
 		vec3(0.15f, -0.13f, 0),//right leg
 		vec3(-0.15f, -0.13f, 0)//left leg
-		//weapon
 	};
 
-	
-
-	// Set a callback for handling mouse cursor position
-	// Decomment the following line for a cursor position change callback example
-	// glfwSetCursorPosCallback(window, cursor_position_callback);
-
-	// TODO Ex4
-	// Set callback for window resizing
 	glfwSetFramebufferSizeCallback(window, window_callback);
 
 	marian.position = vec3(0.0f, 0.0f, 0.0f);
@@ -287,17 +305,40 @@ int main(void)
 		glfwPollEvents();
 		// Clear the screen
 		glClear(GL_COLOR_BUFFER_BIT);
+
+		//new movement implementation
+		if (marian.existing) {
+			if(isSpinning){
+				spinAngle += spinSpeed * deltaTime;
+			}
+		}
+
+		if (marian.existing) {
+			if (moveRight) {
+				marian.position.x += 0.5f * deltaTime;
+			}
+			if (moveUp) {
+				marian.position.y += 0.5f * deltaTime;
+			}
+			if (moveLeft) {
+				marian.position.x -= 0.5f * deltaTime;
+			}
+			if(moveDown) {
+				marian.position.y -= 0.5f * deltaTime;
+			}
+		}
+
 		// Use our shader
 		glUseProgram(programID);
 		unsigned int transformLoc = glGetUniformLocation(programID, "transform");
 		unsigned int transformLoc2 = glGetUniformLocation(programID, "color");
-
+		// Handling enemy attacks on marian
 		if(marian.existing && enemyCoolDown < currentFrame - enemyTimer){
 			for (int j = 0; j < 2; j++) {
 				if (enemies[j].existing) {
 					float distance = length(marian.position - enemies[j].position);
 					if (distance < enemyRange) {
-						marian.health -= 0.2f;
+						marian.health -= 0.21f;
 						enemyTimer = currentFrame;
 						cout << "Marian hit! Health: " << marian.health * 100.0f << endl;
 					}
@@ -305,9 +346,89 @@ int main(void)
 			}
 		}
 
+		//collision handling between marian and enemies
+		for(int i = 0; i < 2; i++){
+			if(marian.existing && enemies[i].existing){
+				float distance = length(marian.position - enemies[i].position);
+				float radius = 2.0f * playerRadius;
+				if (distance < radius) {
+					float overlap = radius - distance;
+					vec3 direction = normalize(marian.position - enemies[i].position);
+					marian.position += direction * overlap;
+					enemies[i].position -= direction * overlap;
+				}
+			}
+		}
+
+		//collision handling between marian and borders
+		if (marian.existing) {
+			if (marian.position.x - playerRadius < borderLeft) {
+				float overlap = borderLeft - marian.position.x + playerRadius;
+				marian.position.x += overlap;
+			}
+			if (marian.position.x + playerRadius > borderRight) {
+				float overlap = marian.position.x + playerRadius - borderRight;
+				marian.position.x -= overlap;
+			}
+			if (marian.position.y + playerRadius > borderTop) {
+				float overlap = marian.position.y + playerRadius - borderTop;
+				marian.position.y -= overlap;
+			}
+			if (marian.position.y - playerRadius < borderBottom) {
+				float overlap = borderBottom - marian.position.y + playerRadius;
+				marian.position.y += overlap;
+			}
+		}
+
+		//Swinging the weapon
+		if (marian.existing) {
+			if (isSwinging) {
+				if (isSwingingDown) {
+					weaponAngle -= swingSpeed * deltaTime;
+					if (weaponAngle <= weaponSwing) {
+						weaponAngle = weaponSwing;
+						isSwingingDown = false;
+					}
+				}
+				else {
+					weaponAngle += swingSpeed * deltaTime;
+					if (weaponAngle >= 0.0f) {
+						weaponAngle = 0.0f;
+						isSwinging = false;
+					}
+				}
+			}
+		}
+
+		//When swinging the weapon, i used radians(weaponAngle). but the movement was very subtle
+		//and out of curiosity i tried to use just weaponAngle and seemed to work better 
+		//but i still can't figure how to rotate wrt the arm not on its own
+
+		// Drawing the weapon for marian
+		glUniform4fv(transformLoc2, 1, value_ptr(vec4(0.82f, 0.82f, 0.82f, 1.0f)));
+		glBindVertexArray(vao);
+		mat4 model = mat4(1.0f);
+		if (!weaponPicked) {
+			model = translate(model, weaponStartPos);
+			model = rotate(model, weaponAngle, vec3(0.0f, 0.0f, 1.0f));
+		}
+		else {
+			mat4 translation_matrix = translate(mat4(1.0f), marian.position);
+			model = translate(model, weaponOffset);
+			model = translation_matrix * model;
+			model = rotate(model, weaponAngle, vec3(0.0f, 0.0f, 1.0f));
+		}
+
+		model = scale(model, vec3(0.3f, 2.0f, 1.0f));
+
+		glUniformMatrix4fv(transformLoc, 1, GL_FALSE, value_ptr(model));
+		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
+		//drawing marian and enemies
 		if (marian.existing) {
 			mat4 model = mat4(1.0f);
 			mat4 translation_matrix = translate(mat4(1.0f), marian.position);
+			translation_matrix = rotate(translation_matrix, spinAngle, vec3(0.0f, 0.0f, 1.0f));
 
 			glBindVertexArray(circle_vao);
 			//drawing the head
@@ -359,9 +480,6 @@ int main(void)
 				glUniformMatrix4fv(transformLoc, 1, GL_FALSE, value_ptr(model));
 				glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 			}
-
-			
-
 		}
 		// Initializing the enemies after the weapon is picked
 		if (weaponPicked && !enemiesSpawned) {
@@ -375,7 +493,7 @@ int main(void)
 			enemiesSpawned = true;
 			cout << "Enemies spawned!" << '\n';
 		}
-
+		//drawing the enemies
 		for (int j = 0; j < 2; j++) {
 			if (enemies[j].existing) {
 				mat4 model = mat4(1.0f);
@@ -443,7 +561,7 @@ int main(void)
 				glUniformMatrix4fv(transformLoc, 1, GL_FALSE, value_ptr(model));
 				glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
-				//Drawing the tip of the spears
+				//Drawing the tips of the spears
 				glUniform4fv(transformLoc2, 1, value_ptr(vec4(0.82f, 0.82f, 0.82f, 1.0f)));
 				model = mat4(1.0f);
 				model = translate(model, enemies[j].position);
@@ -455,60 +573,17 @@ int main(void)
 				glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_INT, 0);
 			}
 		}
-		//Swinging the weapon
-		if (isSwinging) {
-			if (isSwingingDown) {
-				weaponAngle -= swingSpeed * deltaTime;
-				if(weaponAngle <= weaponSwing) {
-					weaponAngle = weaponSwing;
-					isSwingingDown = false;
-				}
-			}
-			else {
-				weaponAngle += swingSpeed * deltaTime;
-				if (weaponAngle >= 0.0f) {
-					weaponAngle = 0.0f;
-					isSwinging = false;
-				}
-			}
-		}
 
-		//When swinging the weapon, i used radians(weaponAngle). but the movement was very subtle
-		//and out of curiosity i tried to use just weaponAngle and seemed to work better 
-		//but i still can't figure how to rotate wrt the arm not on its own
+		// Drawing health bar above marian and above enemies
 
-		// Drawing the weapon for Marian
-		glUniform4fv(transformLoc2, 1, value_ptr(vec4(0.82f,0.82f,0.82f,1.0f)));
-		glBindVertexArray(vao);
-		mat4 model = mat4(1.0f);
-		if (!weaponPicked) {
-			model = translate(model, weaponStartPos);
-			model = rotate(model, weaponAngle, vec3(0.0f, 0.0f, 1.0f));
-		}
-		else {
-			mat4 translation_matrix = translate(mat4(1.0f), marian.position);
-			model = translate(model, weaponOffset);
-			model = translation_matrix * model;
-			model = rotate(model, weaponAngle, vec3(0.0f, 0.0f, 1.0f));
-		}
-
-		model = scale(model, vec3(0.3f, 2.0f, 1.0f));
-
-		glUniformMatrix4fv(transformLoc, 1, GL_FALSE, value_ptr(model));
-
-		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-
-		// Drawing health bar above Marian and above enemies
+		float barWidth = 0.3f;
+		float barHeight = 0.02f;
 
 		if (weaponPicked) {
 			glBindVertexArray(vao);
 			float currentHealth = marian.health;
-			//simulate the health loss
-			//float lostHealth = 0.5f;
 			float lostHealth = 1.0f - currentHealth;
 			vec3 healthBarPos = marian.position + vec3(0.0f, 0.3f, 0.0f);
-			float barWidth = 0.3f;
-			float barHeight = 0.02f;
 
 			model = mat4(1.0f);
 			model = translate(model, healthBarPos);
@@ -518,10 +593,11 @@ int main(void)
 			if (lostHealth < 1.0f)
 				glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
-			if(lostHealth > 0.0f){
+			if(lostHealth >= 0.0f){
 				//calculating the red part of the health bar
 				float redHealth = barWidth * lostHealth;
-				float offsetX = ( barWidth - redHealth) / 2.0f ;
+				//allign the red to the right of the green
+				float offsetX = ( barWidth - redHealth) / 2.0f;
 				model = mat4(1.0f);
 				model = translate(model, healthBarPos + vec3(offsetX, 0.0f, 0.0f));
 				model = scale(model, vec3(redHealth/0.1f, barHeight/0.1f, 1.0f));
@@ -531,28 +607,28 @@ int main(void)
 					glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 			}
 
-
 			for (int j = 0; j < 2; j++) {
 				glBindVertexArray(vao);
-				float currentHealth = enemies[j].health;
-				float lostHealth = 1.0f - currentHealth;
+				currentHealth = enemies[j].health;
+				lostHealth = 1.0f - currentHealth;
 				vec3 healthBarPos = enemies[j].position + vec3(0.0f, 0.3f, 0.0f);
 
 				model = mat4(1.0f);
 				model = translate(model, healthBarPos);
-				model = scale(model, vec3(barWidth/0.1f, barHeight/0.1f, 1.0f));
+				model = scale(model, vec3(barWidth / 0.1f, barHeight / 0.1f, 1.0f));
 				glUniformMatrix4fv(transformLoc, 1, GL_FALSE, value_ptr(model));
 				glUniform4fv(transformLoc2, 1, value_ptr(vec4(0.0f, 1.0f, 0.0f, 1.0f)));
 				if (lostHealth < 1.0f)
 					glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
-				if(lostHealth > 0.0f){
+				if (lostHealth > 0.0f) {
 					//calculating the red part of the health bar
 					float redHealth = barWidth * lostHealth;
-					float offsetX = (barWidth - redHealth) /1.5f ;
+					//allign the red to the right of the green
+					float offsetX = (barWidth - redHealth) / 2.0f;
 					model = mat4(1.0f);
 					model = translate(model, healthBarPos + vec3(offsetX, 0.0f, 0.0f));
-					model = scale(model, vec3(barWidth / 0.1f, barHeight / 0.1f, 1.0f));
+					model = scale(model, vec3(redHealth / 0.1f, barHeight / 0.1f, 1.0f));
 					glUniformMatrix4fv(transformLoc, 1, GL_FALSE, value_ptr(model));
 					glUniform4fv(transformLoc2, 1, value_ptr(vec4(1.0f, 0.0f, 0.0f, 1.0f)));
 					if (lostHealth < 1.0f)
@@ -560,9 +636,21 @@ int main(void)
 				}
 			}
 		}
+		if(marian.health <= 0.0f && marian.existing){
+			marian.existing = false;
+			gameOver = true;
+			cout << "Game Over! Marian has been defeated." << endl;
+		}
+		if(!gameOver && !gameWon && enemiesSpawned){
+			if (!enemies[0].existing && !enemies[1].existing) {
+				gameWon = true;
+				cout << "Congratulations! All enemies have been defeated." << endl;
+			}
+		}
 
 		glfwSetKeyCallback(window, key_callback);
 		glfwSetMouseButtonCallback(window, mouse_button_callback);
+
 	}
 
 	// Cleanup
